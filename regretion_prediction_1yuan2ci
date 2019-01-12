@@ -1,0 +1,95 @@
+#在散点图中进行拟合寻找最优曲线
+
+import numpy as np
+import tensorflow as tf
+import matplotlib.pyplot as plt
+
+#构建网络层，神经元个数等于out_size
+def add_layer(inputs,in_size,out_size,activ_fun=None):
+    weights=tf.Variable(tf.random_normal([in_size,out_size]))
+    #TypeError: unsupported operand type(s) for +: 'Variable' and 'float'
+    biases=tf.Variable(tf.zeros([1,out_size]))+0.1
+    wx_plus_b=tf.matmul(inputs,weights)+biases
+    if activ_fun is None:
+        outputs=wx_plus_b
+    else:
+        outputs=activ_fun(wx_plus_b)
+
+    return outputs
+
+#定义形参的类型和属性（float类型，n行1列）
+#numpy中默认float64，tensorflow中默认float32
+Xs=tf.placeholder(tf.float32,shape=[None,1],name=None)
+Ys=tf.placeholder(tf.float32,shape=[None,1],name=None)
+
+#定义实参,设置噪点（均值为0，均方差为0.05）
+x_data=np.linspace(-1,1,200)[:,np.newaxis]
+noise=np.random.normal(0,0.05,x_data.shape)
+y_data=np.square(x_data)+noise
+ 
+#设置各个网络层参数，神经元个数和激励函数
+#L2是输出层，1个神经元
+L1_in_size=x_data.shape[1]
+L1_out_size=8
+L1_activ_fun=tf.nn.relu
+L2_in_size=L1_out_size
+L2_out_size=1
+L2_activ_fun=None
+learn_rate=0.1
+
+#建立第一层网络和输出层网络
+L1=add_layer(Xs,L1_in_size,L1_out_size,L1_activ_fun)
+prediction=add_layer(L1,L2_in_size,L2_out_size,L2_activ_fun)
+#建立损失函数
+loss=tf.reduce_mean(tf.reduce_sum(tf.square(Ys-prediction),reduction_indices=1))
+
+
+#建立优化器（梯度下降优化器）
+optimizer=tf.train.GradientDescentOptimizer(learn_rate)
+train=optimizer.minimize(loss)
+
+#定义保存参数的saver
+saver=tf.train.Saver()
+
+fig=plt.figure()
+ax=fig.add_subplot(1,1,1)
+ax.scatter(x_data,y_data)
+#这里用plt.show(),程序无法执行下去；或者都删掉不写plt.show()也行
+plt.show(block=False)
+
+#初始化参数
+init=tf.global_variables_initializer()
+
+print("训练误差：")
+with tf.Session()as sess:   #实例化会话对象
+    sess.run(init)          #初始化激活
+    for i in range(5001):
+        #用feed_dict将实参值传递给形参
+        sess.run(train,feed_dict={Xs:x_data,Ys:y_data})
+        #每迭代100次，在图中更新一次拟合曲线和误差值
+        if i%500==0:
+            a=sess.run(loss,feed_dict={Xs:x_data,Ys:y_data})
+            try:
+                ax.lines.remove(lines[0])
+            except Exception:
+                pass
+            #prediction是tensor类型，画图需要用sess.run()转为数组类型
+            lines=ax.plot(x_data,sess.run(prediction,feed_dict={Xs:x_data,Ys:y_data}),'r-',lw=5)
+            plt.pause(0.1)
+            print(a)
+    #保存神经网络
+    path="E:\python\save_net.ckpt"
+    save_path=saver.save(sess,path)
+            
+            
+        
+
+
+
+
+    
+
+
+
+
+
